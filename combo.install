@@ -5,6 +5,7 @@
  */
 function combo_install() {
   $types = array(
+    // A node type that will contain the combo field.
     array(
       'type' => 'test',
       'name' => 'Test',
@@ -14,9 +15,10 @@ function combo_install() {
       'modified' => 1,
       'locked' => 0,
     ),
+    // A node type receiving the values of the combo field (= the X-entity).
     array(
-      'type' => 'ghost',
-      'name' => 'Ghost',
+      'type' => 'combo_value',
+      'name' => 'Combo-field value',
       'base' => 'node_content',
       'description' => '',
       'custom' => 1,
@@ -30,6 +32,7 @@ function combo_install() {
   }
 
   $fields = array(
+    // The fields in the combo.
     array(
       'field_name' => 'field_combo_1',
       'type' => 'number_integer',
@@ -39,29 +42,33 @@ function combo_install() {
       'type' => 'number_integer',
       'cardinality' => FIELD_CARDINALITY_UNLIMITED,
     ),
+    // The combo field.
     array(
       'field_name' => 'field_combo',
       'type' => 'combo',
       'cardinality' => FIELD_CARDINALITY_UNLIMITED,
     ),
+    // A regular field.
     array(
       'field_name' => 'field_basic',
       'type' => 'number_integer',
     ),
   );
   $instances = array(
+    // Attach the two fields in the combo to the 'combo_value' node type.
     array(
       'field_name' => 'field_combo_1',
       'entity_type' => 'node',
-      'bundle' => 'ghost',
+      'bundle' => 'combo_value',
       'settings' => array('min' => 0, 'max' => 5),
     ),
     array(
       'field_name' => 'field_combo_2',
       'entity_type' => 'node',
-      'bundle' => 'ghost',
+      'bundle' => 'combo_value',
       'settings' => array('min' => 0, 'max' => 5),
     ),
+    // Attach the combo-field and a regular number field to the 'test' node type.
     array(
       'field_name' => 'field_combo',
       'entity_type' => 'node',

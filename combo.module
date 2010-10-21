@@ -14,12 +14,43 @@ function combo_field_info() {
 }
 
 /**
+ * Implements hook_field_widget_info().
+ */
+function combo_field_widget_info() {
+  return array(
+    'combo_widget' => array(
+      'label' => t('Combo widget'),
+      'field types' => array('combo'),
+      'behaviors' => array(
+        // The 'default value' is handled through each subfield's default
+        // value.
+        'default value' => FIELD_BEHAVIOR_NONE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function combo_field_formatter_info() {
+  return array(
+    'combo_formatter' => array(
+      'label' => t('Combo formatter'),
+      'field types' => array('combo'),
+    ),
+  );
+}
+
+/**
  * Implements hook_field_schema().
  */
 function combo_field_schema() {
   return array(
     'columns' => array(
-      'id' => array(
+      // Right now we're saving nodes, so naming the column nid is easier.
+      // When using dedicated X-entities, should probably be renamed to 'id'.
+      'nid' => array(
         'type' => 'text',
         'size' => 'big',
         'not null' => FALSE,
@@ -29,81 +60,147 @@ function combo_field_schema() {
 }
 
 /**
- * Implements hook_field_is_empty().
- */
-function combo_field_is_empty($item, $field) {
-  return empty($item['id']);
-}
-
-/**
  * Implements hook_field_load().
  */
 function combo_field_load($entity_type, $entities, $field, $instances, $langcode, &$items) {
+  // Notes :
+  // - if sub_entities can be updated independantly, then field cache entries
+  //   for parents need to be cleared.
+  // - optimization: code should use multiple entity load - see file_field_load().
   foreach ($entities as $id => $entity) {
     foreach ($items[$id] as $delta => &$item) {
-      if (!empty($item['id'])) {
-        $item['entity'] = node_load($item['id']);
+      if (!empty($item['nid'])) {
+        $item = array_merge($item, (array) node_load($item['nid']));
       }
     }
   }
 }
 
 /**
- * Implements hook_field_widget_info().
+ * Implements hook_field_presave().
  */
-function combo_field_widget_info() {
-  return array(
-    'combo_widget' => array(
-      'label' => t('Combo widget'),
-      'field types' => array('combo'),
-    ),
-  );
+function combo_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  foreach ($items as $delta => &$item) {
+    // Make sure we provide base ids for the sub_entity to be saved.
+    // Values coming from the widget will have those, but values added manually
+    // through a direct [entity]_save($entity) might not.
+    $item += array(
+      'nid' => NULL,
+      'vid' => NULL,
+      'type' => 'combo_value',
+    );
+    $sub_entity = (object) $item;
+
+    // Temprorary : since we currently save to a node,
+    // - add a dummy title for easier debug/tracking (note : When the
+    //   containing entity is being created, we won't have an eid to refer to),
+    // - add a uid and published status.
+    list($eid) = entity_extract_ids($entity_type, $entity);
+    $sub_entity->title = "value for $entity_type $eid - $field[field_name] - delta $delta";
+    $sub_entity->uid = 1;
+    $sub_entity->status = 1;
+
+    node_save($sub_entity);
+
+    $item = array('nid' => $sub_entity->nid);
+  }
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function combo_field_is_empty($item, $field) {
+  // This runs after the widget has called field_attach_submit on the values,
+  // so empty values on sub-fields have already been filtered out.
+  foreach (field_info_instances('node', 'combo_value') as $sub_field_name => $sub_instance) {
+    if (isset($item[$sub_field_name])) {
+      foreach ($item[$sub_field_name] as $langcode => $sub_items) {
+        if (!empty($sub_items)) {
+          return FALSE;
+        }
+      }
+    }
+  }
+  return TRUE;
 }
 
 /**
  * Implements hook_field_widget_form().
  */
 function combo_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  $empty_sub_entity = (object) array('type' => 'ghost');
-  $sub_entity = isset($items[$delta]['entity']) ? $items[$delta]['entity'] : $empty_sub_entity;
+  // Make sure that base ids are present.
+  $item = isset($items[$delta]) ? $items[$delta] : array();
+  $item += array(
+    'nid' => NULL,
+    'vid' => NULL,
+    'type' => 'combo_value',
+  );
+  $sub_entity = (object) $item;
 
-  // Append field_name to the current parents.
-  $previous_parents = isset($form_state['field']['current_parents']) ? $form_state['field']['current_parents'] : array();
-  $options['parents'] = $previous_parents;
-  $options['parents'][] = $field['field_name'];
+  // Nest the sub-entity form in a dedicated parent space, by appending
+  // [field_name, langcode, delta] to the current parent space.
+  $parents = array_merge($element['#field_parents'], array($element['#field_name'], $element['#language'], $element['#delta']));
+
+  $element += array(
+    // @todo - properly declare element type in hook_element_info().
+    '#type' => 'combo_widget',
+    '#input' => TRUE,
+    // Store the sub-entity's base ids.
+    '#base_ids' => (array) entity_create_stub_entity('node', entity_extract_ids('node', $sub_entity)),
+    // Store the sub-form's parents space.
+    '#combo_parents' => $parents,
+    '#element_validate' => array('combo_field_widget_validate'),
+  );
 
   // @WARNING : we provide field_attach_form() with a fresh element instead of a $form.
-  field_attach_form('node', $sub_entity, $element, $form_state, $langcode, $options);
-  $form_state['field']['current_parents'] = $previous_parents;
+  field_attach_form('node', $sub_entity, $element, $form_state, $element['#language'], $parents);
 
-  $element['#element_validate'] = array('combo_field_widget_validate');
+  // @todo : not sure how 'required' should behave.
+
   return $element;
 }
 
 /**
  * FAPI validation of an individual combo element.
  */
-function combo_field_widget_validate($element, &$form_state, &$complete_form) {
-  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
-  $instance = $form_state['field'][$element['#field_name']][$element['#language']]['instance'];
+function combo_field_widget_validate($element, &$form_state, $complete_form) {
+  // Reassemble a sub-entity object by merging submitted values and the base
+  // ids.
+  $sub_entity = (object) ($element['#value'] + $element['#base_ids']);
 
-  $sub_entity = (object) array('type' => 'ghost');
+  // Retrieve the parents space.
+  $parents = $element['#combo_parents'];
 
-  // Append field_name to the current parents.
-  $previous_parents = isset($form_state['field']['current_parents']) ? $form_state['field']['current_parents'] : array();
-  $parents = $element['#parents'];
-  $parents[] = $field['field_name'];
-  $form_state['field']['current_parents'] = $parents;
+  // Validate the sub-fields.
+  $errors = form_get_errors();
+  field_attach_form_validate('node', $sub_entity, $element, $form_state, $parents);
 
-  // @todo : doesn't work because values are not properly extracted into $sub_entity.
-  field_attach_form_validate('node', $sub_entity, $complete_form, $form_state);
-  $form_state['field']['current_parents'] = $previous_parents;
+  // If validating the sub-fields did not raise errors, treat the submitted
+  // values and set the element value to the resulting sub-entity.
+  if (count(form_get_errors()) == count($errors)) {
+    field_attach_submit('node', $sub_entity, $element, $form_state, $parents);
+    form_set_value($element, (array) $sub_entity, $form_state);
+  }
 }
 
 /**
  * Implements hook_field_widget_error().
  */
 function combo_field_widget_error($element, $error, $form, &$form_state) {
-  // @todo
-  // form_error($element['value'], $error['message']);
+  // @todo - when hook_field_validate() raises an error (none for now),
+  // form_error($element, $error['message']);
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ *
+ * Dummy, quick-n-dirty, non optimized formatter : full sub-node view.
+ */
+function combo_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  foreach ($items as $delta => $item) {
+    $sub_entity = (object) $item;
+    $element[$delta] = field_attach_view('node', $sub_entity, 'full');
+  }
+  return $element;
 }
