@@ -1,0 +1,8 @@
+; $Id: field.info,v 1.9 2010/09/05 02:21:38 dries Exp $
+name = Combo
+description = Prototype combo field
+package = Core
+version = VERSION
+core = 7.x
+files[] = combo.module
+files[] = combo.install

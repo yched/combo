@@ -1,0 +1,109 @@
+<?php
+
+/**
+ * Implements hook_field_info().
+ */
+function combo_field_info() {
+  return array(
+    'combo' => array(
+      'label' => t('Prototype combo field'),
+      'default_widget' => 'combo_widget',
+      'default_formatter' => 'combo_formatter',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_schema().
+ */
+function combo_field_schema() {
+  return array(
+    'columns' => array(
+      'id' => array(
+        'type' => 'text',
+        'size' => 'big',
+        'not null' => FALSE,
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function combo_field_is_empty($item, $field) {
+  return empty($item['id']);
+}
+
+/**
+ * Implements hook_field_load().
+ */
+function combo_field_load($entity_type, $entities, $field, $instances, $langcode, &$items) {
+  foreach ($entities as $id => $entity) {
+    foreach ($items[$id] as $delta => &$item) {
+      if (!empty($item['id'])) {
+        $item['entity'] = node_load($item['id']);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function combo_field_widget_info() {
+  return array(
+    'combo_widget' => array(
+      'label' => t('Combo widget'),
+      'field types' => array('combo'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function combo_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $empty_sub_entity = (object) array('type' => 'ghost');
+  $sub_entity = isset($items[$delta]['entity']) ? $items[$delta]['entity'] : $empty_sub_entity;
+
+  // Append field_name to the current parents.
+  $previous_parents = isset($form_state['field']['current_parents']) ? $form_state['field']['current_parents'] : array();
+  $options['parents'] = $previous_parents;
+  $options['parents'][] = $field['field_name'];
+
+  // @WARNING : we provide field_attach_form() with a fresh element instead of a $form.
+  field_attach_form('node', $sub_entity, $element, $form_state, $langcode, $options);
+  $form_state['field']['current_parents'] = $previous_parents;
+
+  $element['#element_validate'] = array('combo_field_widget_validate');
+  return $element;
+}
+
+/**
+ * FAPI validation of an individual combo element.
+ */
+function combo_field_widget_validate($element, &$form_state, &$complete_form) {
+  $field = $form_state['field'][$element['#field_name']][$element['#language']]['field'];
+  $instance = $form_state['field'][$element['#field_name']][$element['#language']]['instance'];
+
+  $sub_entity = (object) array('type' => 'ghost');
+
+  // Append field_name to the current parents.
+  $previous_parents = isset($form_state['field']['current_parents']) ? $form_state['field']['current_parents'] : array();
+  $parents = $element['#parents'];
+  $parents[] = $field['field_name'];
+  $form_state['field']['current_parents'] = $parents;
+
+  // @todo : doesn't work because values are not properly extracted into $sub_entity.
+  field_attach_form_validate('node', $sub_entity, $complete_form, $form_state);
+  $form_state['field']['current_parents'] = $previous_parents;
+}
+
+/**
+ * Implements hook_field_widget_error().
+ */
+function combo_field_widget_error($element, $error, $form, &$form_state) {
+  // @todo
+  // form_error($element['value'], $error['message']);
+}

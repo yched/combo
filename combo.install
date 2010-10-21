@@ -1,0 +1,83 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function combo_install() {
+  $types = array(
+    array(
+      'type' => 'test',
+      'name' => 'Test',
+      'base' => 'node_content',
+      'description' => '',
+      'custom' => 1,
+      'modified' => 1,
+      'locked' => 0,
+    ),
+    array(
+      'type' => 'ghost',
+      'name' => 'Ghost',
+      'base' => 'node_content',
+      'description' => '',
+      'custom' => 1,
+      'modified' => 1,
+      'locked' => 0,
+    ),
+  );
+  foreach ($types as $type) {
+    $type = node_type_set_defaults($type);
+    node_type_save($type);
+  }
+
+  $fields = array(
+    array(
+      'field_name' => 'field_combo_1',
+      'type' => 'number_integer',
+    ),
+    array(
+      'field_name' => 'field_combo_2',
+      'type' => 'number_integer',
+      'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+    ),
+    array(
+      'field_name' => 'field_combo',
+      'type' => 'combo',
+      'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+    ),
+    array(
+      'field_name' => 'field_basic',
+      'type' => 'number_integer',
+    ),
+  );
+  $instances = array(
+    array(
+      'field_name' => 'field_combo_1',
+      'entity_type' => 'node',
+      'bundle' => 'ghost',
+      'settings' => array('min' => 0, 'max' => 5),
+    ),
+    array(
+      'field_name' => 'field_combo_2',
+      'entity_type' => 'node',
+      'bundle' => 'ghost',
+      'settings' => array('min' => 0, 'max' => 5),
+    ),
+    array(
+      'field_name' => 'field_combo',
+      'entity_type' => 'node',
+      'bundle' => 'test',
+    ),
+    array(
+      'field_name' => 'field_basic',
+      'entity_type' => 'node',
+      'bundle' => 'test',
+      'settings' => array('min' => 0, 'max' => 5),
+    ),
+  );
+  foreach ($fields as $field) {
+    field_create_field($field);
+  }
+  foreach ($instances as $instance) {
+    field_create_instance($instance);
+  }
+}
