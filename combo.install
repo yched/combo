@@ -7,8 +7,8 @@ function combo_install() {
   $types = array(
     // A node type that will contain the combo field.
     array(
-      'type' => 'test',
-      'name' => 'Test',
+      'type' => 'test_combo',
+      'name' => 'Test combo field',
       'base' => 'node_content',
       'description' => '',
       'custom' => 1,

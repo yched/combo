@@ -1,6 +1,26 @@
 <?php
 
 /**
+ * Very simple prototype for a combo field + widget.
+ *
+ * On install, the modules creates the following setup :
+ * - a 'combo_value' node type with :
+ *   - field_combo_1, mono-value number field
+ *   - field_combo_2, multi-value number field, field_combo_2
+ *
+ * - a 'test_combo' node type with :
+ *   - field_combo, multi-value combofield, using the subfields above
+ *   - field_basic, regular mono-value number field
+ *
+ * All the number fields accept values between 0 and 5, to check validation
+ * errors.
+ *
+ * Play with the form at node/add/test-combo, save, edit...
+ * Change fields in the combo at admin/structure/types/manage/combo_value/fields
+ * (file / image widgets don't work)
+ */
+
+/**
  * Implements hook_field_info().
  */
 function combo_field_info() {
