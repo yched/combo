@@ -72,12 +72,12 @@ function combo_install() {
     array(
       'field_name' => 'field_combo',
       'entity_type' => 'node',
-      'bundle' => 'test',
+      'bundle' => 'test_combo',
     ),
     array(
       'field_name' => 'field_basic',
       'entity_type' => 'node',
-      'bundle' => 'test',
+      'bundle' => 'test_combo',
       'settings' => array('min' => 0, 'max' => 5),
     ),
   );
