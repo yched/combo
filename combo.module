@@ -170,10 +170,10 @@ function combo_field_widget_form(&$form, &$form_state, $field, $instance, $langc
     // Store the sub-form's parents space.
     '#combo_parents' => $parents,
     '#element_validate' => array('combo_field_widget_validate'),
+    '#parents' => $parents,
   );
 
-  // @WARNING : we provide field_attach_form() with a fresh element instead of a $form.
-  field_attach_form('node', $sub_entity, $element, $form_state, $element['#language'], $parents);
+  field_attach_form('node', $sub_entity, $element, $form_state, $element['#language']);
 
   // @todo : not sure how 'required' should behave.
 
@@ -188,17 +188,14 @@ function combo_field_widget_validate($element, &$form_state, $complete_form) {
   // ids.
   $sub_entity = (object) ($element['#value'] + $element['#base_ids']);
 
-  // Retrieve the parents space.
-  $parents = $element['#combo_parents'];
-
   // Validate the sub-fields.
   $errors = form_get_errors();
-  field_attach_form_validate('node', $sub_entity, $element, $form_state, $parents);
+  field_attach_form_validate('node', $sub_entity, $element, $form_state);
 
   // If validating the sub-fields did not raise errors, treat the submitted
   // values and set the element value to the resulting sub-entity.
   if (count(form_get_errors()) == count($errors)) {
-    field_attach_submit('node', $sub_entity, $element, $form_state, $parents);
+    field_attach_submit('node', $sub_entity, $element, $form_state);
     form_set_value($element, (array) $sub_entity, $form_state);
   }
 }

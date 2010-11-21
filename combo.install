@@ -42,6 +42,11 @@ function combo_install() {
       'type' => 'number_integer',
       'cardinality' => FIELD_CARDINALITY_UNLIMITED,
     ),
+    array(
+      'field_name' => 'field_combo_3',
+      'type' => 'file',
+      'cardinality' => FIELD_CARDINALITY_UNLIMITED,
+    ),
     // The combo field.
     array(
       'field_name' => 'field_combo',
@@ -67,6 +72,12 @@ function combo_install() {
       'entity_type' => 'node',
       'bundle' => 'combo_value',
       'settings' => array('min' => 0, 'max' => 5),
+    ),
+    array(
+      'field_name' => 'field_combo_3',
+      'entity_type' => 'node',
+      'bundle' => 'combo_value',
+      'settings' => array('file_extensions' => 'txt png gif jpg jpeg'),
     ),
     // Attach the combo-field and a regular number field to the 'test' node type.
     array(
